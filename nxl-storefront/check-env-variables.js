@@ -1,5 +1,6 @@
 const c = require("ansi-colors")
 
+// List of required environment variables with descriptions
 const requiredEnvs = [
   {
     key: "NEXT_PUBLIC_MEDUSA_BACKEND_URL",
@@ -26,9 +27,31 @@ const requiredEnvs = [
     description:
       "Your Stripe public key. See - https://docs.medusajs.com/add-plugins/stripe.",
   },
+  // Add any other required variables here
 ]
 
+// List of environment variables that should be valid URLs
+const urlVars = [
+  'NEXT_PUBLIC_BASE_URL',
+  'NEXT_PUBLIC_MEDUSA_BACKEND_URL',
+  'NEXT_PUBLIC_MINIO_ENDPOINT',
+  'NEXT_PUBLIC_SEARCH_ENDPOINT',
+]
+
+function isInvalidUrl(value) {
+  // Check if value is just protocol or empty
+  if (!value || value === 'http://' || value === 'https://') return true
+  try {
+    // Try to construct a URL object; will throw if invalid
+    new URL(value)
+    return false
+  } catch {
+    return true
+  }
+}
+
 function checkEnvVariables() {
+  // Check for missing required environment variables
   const missingEnvs = requiredEnvs.filter(function (env) {
     return !process.env[env.key]
   })
@@ -51,7 +74,7 @@ function checkEnvVariables() {
       )
     )
 
-    // In production builds, warn but don't exit to allow build to continue
+    // In production builds, warn but don't exit to allow build to continue (optional)
     if (process.env.NODE_ENV === 'production' && process.env.CI) {
       console.warn(c.yellow("\n⚠️  Warning: Continuing build despite missing variables for deployment\n"))
       return
@@ -60,20 +83,23 @@ function checkEnvVariables() {
     process.exit(1)
   }
 
-  // Validate URL formats
-  const urlVars = ['NEXT_PUBLIC_BASE_URL', 'NEXT_PUBLIC_MEDUSA_BACKEND_URL']
+  // Validate URL formats for all URL-based variables
   urlVars.forEach(function (varName) {
     const value = process.env[varName]
-    if (value && !value.startsWith('http://') && !value.startsWith('https://')) {
-      console.error(c.red.bold(`\n🚫 Error: ${varName} must include protocol (https://)\n`))
-      console.error(c.yellow(`  Current value: ${value}`))
-      console.error(c.yellow(`  Should be: https://${value}\n`))
+    // Only check if variable is set
+    if (value) {
+      if (isInvalidUrl(value)) {
+        console.error(c.red.bold(`\n🚫 Error: ${varName} is not a valid URL or is incomplete (e.g., just protocol)\n`))
+        console.error(c.yellow(`  Current value: ${value}`))
+        console.error(c.yellow(`  Should be a complete URL, e.g., https://yourdomain.com\n`))
 
-      if (!(process.env.NODE_ENV === 'production' && process.env.CI)) {
-        process.exit(1)
+        if (!(process.env.NODE_ENV === 'production' && process.env.CI)) {
+          process.exit(1)
+        }
       }
     }
   })
 }
 
+// Export the function for use in build scripts or next.config.js
 module.exports = checkEnvVariables
